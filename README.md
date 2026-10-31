@@ -12,7 +12,7 @@ that saves the most money within your budget, and sends the shopping list to you
 
 | Tool | Category | What it does |
 |---|---|---|
-| `get_game_price(title)` | **Data** | Cheapest current price across stores (Steam, GOG, Humble, …), normal price, % off, all-time low and a buy link. Warns when the title matched inexactly. Read-only. |
+| `get_game_price(title)` | **Data** | Cheapest current price across stores (Steam, GOG, Humble, …), normal price, % off, all-time low and a buy link. For vague titles (e.g. "spongebob") it warns and lists every other matching game with its price, so the agent can ask which one you mean. Read-only. |
 | `send_to_phone(title, message, links)` | **Action** | Sends one push notification to your phone via [ntfy](https://ntfy.sh), with up to 3 link buttons. Logged. |
 | `plan_purchases(wishlist, budget, must_have, send)` | **Orchestration** | Calls `get_game_price` for each game, judges *buy now* vs *wait*, picks what to buy within budget (must-haves first, then the biggest savings), then calls `send_to_phone` once. Inexact matches go to a *check* list instead of being bought. `send=false` previews without sending. |
 | `notifications://sent` | Resource | The 50 most recent notifications, newest first. |

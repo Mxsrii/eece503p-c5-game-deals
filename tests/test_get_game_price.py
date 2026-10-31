@@ -28,7 +28,9 @@ async def test_exact_title_beats_search_ranking(client):
     out = await price(client, "Hollow Knight")
     assert out["title"] == "Hollow Knight"  # not Silksong, which the search ranked first
     assert out["exact_match"] is True and out["warning"] is None
-    assert out["other_matches"] == ["Hollow Knight: Silksong"]
+    assert out["other_matches"] == [
+        {"game_id": "5", "title": "Hollow Knight: Silksong", "cheapest_price": 19.99}
+    ]
 
 
 async def test_inexact_match_carries_a_warning(client):
@@ -37,9 +39,22 @@ async def test_inexact_match_carries_a_warning(client):
     assert out["title"] == "Hollow Knight: Silksong"
     assert out["searched_for"] == "hollow"
     assert out["warning"] == (
-        "'hollow' matched 'Hollow Knight: Silksong', which may be a different game "
-        "(also found: Hollow Knight)."
+        "'hollow' matched 'Hollow Knight: Silksong', which may be a different game. "
+        "Also found: Hollow Knight. Ask which one they mean."
     )
+
+
+async def test_franchise_search_lists_every_match_with_prices(client, world):
+    # Like the real "spongebob" search: one query, many different games.
+    world.search["spongebob"] = [
+        {"gameID": f"9{i}", "external": f"SpongeBob Game {i}", "cheapest": f"{i + 1}.99"} for i in range(6)
+    ]
+    world.games["90"] = world.games["1"]  # details for the first hit
+    out = await price(client, "spongebob")
+    assert out["exact_match"] is False
+    assert [m["title"] for m in out["other_matches"]] == [f"SpongeBob Game {i}" for i in range(1, 6)]
+    assert out["other_matches"][0]["cheapest_price"] == 2.99
+    assert "Also found: SpongeBob Game 1, SpongeBob Game 2, SpongeBob Game 3 and 2 more." in out["warning"]
 
 
 async def test_requests_identify_the_app_and_are_cached(client, world):

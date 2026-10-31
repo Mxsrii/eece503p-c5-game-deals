@@ -43,7 +43,9 @@ GAMES = {
 
 
 def hit(game_id):
-    return {"gameID": game_id, "external": GAMES[game_id]["info"]["title"], "cheapest": "0"}
+    """A search result; like the real API it carries the game's cheapest current price."""
+    cheapest = min(float(d["price"]) for d in GAMES[game_id]["deals"])
+    return {"gameID": game_id, "external": GAMES[game_id]["info"]["title"], "cheapest": f"{cheapest:.2f}"}
 
 
 SEARCH = {

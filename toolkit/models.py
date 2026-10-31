@@ -3,12 +3,21 @@
 from pydantic import BaseModel, Field
 
 
+class GameMatch(BaseModel):
+    game_id: str = Field(description="CheapShark game id")
+    title: str
+    cheapest_price: float = Field(description="Lowest current price in USD across stores")
+
+
 class GamePrice(BaseModel):
     game_id: str = Field(description="CheapShark game id")
     title: str = Field(description="The game that was matched")
     searched_for: str = Field(description="The title that was asked for")
     exact_match: bool = Field(description="False when the closest title differs from the request")
-    other_matches: list[str] = Field(description="Other titles the search also found (up to 3)")
+    other_matches: list[GameMatch] = Field(
+        description="Every other game the search found, with its current lowest price "
+        "(up to 19). When exact_match is false, show these and ask which game the user means."
+    )
     store: str = Field(description="Store with the lowest current price")
     price: float = Field(description="Lowest current price in USD")
     normal_price: float = Field(description="That store's normal price in USD")

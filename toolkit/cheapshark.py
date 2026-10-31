@@ -71,7 +71,7 @@ class CheapSharkClient:
         self._cache[key] = (time.monotonic() + self._cache_ttl_s, data)
         return data
 
-    async def search_games(self, title: str, limit: int = 10) -> list[dict]:
+    async def search_games(self, title: str, limit: int = 20) -> list[dict]:
         """Games whose title matches (fuzzy). Each has gameID, external (title), cheapest."""
         return await self._get("games", {"title": title, "limit": limit}) or []
 

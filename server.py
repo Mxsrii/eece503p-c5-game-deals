@@ -20,7 +20,7 @@ from fastmcp.exceptions import ToolError
 from toolkit.cheapshark import CheapSharkClient, CheapSharkError
 from toolkit.config import USER_AGENT, Settings
 from toolkit.deals import best_purchase, judge_deal
-from toolkit.models import GamePrice, PlannedGame, PurchasePlan, SentNotification
+from toolkit.models import GameMatch, GamePrice, PlannedGame, PurchasePlan, SentNotification
 from toolkit.notify import NotifyError, NtfyClient
 from toolkit.store import NotificationLog
 
@@ -94,8 +94,9 @@ async def get_game_price(title: str) -> GamePrice:
     today's price is actually a good deal. Prices are in USD.
 
     Searches are fuzzy: an exact title match is preferred. When the closest title
-    differs from the one asked for, exact_match is false and `warning` explains it;
-    always pass that warning on to the user.
+    differs from the one asked for (e.g. a franchise name like "spongebob"),
+    exact_match is false, `warning` explains it, and other_matches lists every other
+    game found with its current lowest price: show them and ask which one is meant.
 
     Args:
         title: The game's name, e.g. "Hollow Knight" or "Celeste".
@@ -127,12 +128,23 @@ async def get_game_price(title: str) -> GamePrice:
         datetime.fromtimestamp(low["date"], timezone.utc).date().isoformat() if low.get("date") else None
     )
     matched_title = details.get("info", {}).get("title") or match["external"]
-    others = [r["external"] for r in results if r is not match][:3]
+    # The search results already carry each game's cheapest price, so listing every
+    # alternative costs no extra requests.
+    others = [
+        GameMatch(game_id=r["gameID"], title=r["external"], cheapest_price=float(r.get("cheapest") or 0))
+        for r in results
+        if r is not match
+    ]
     exact = _normalise(match["external"]) == wanted
     warning = None
     if not exact:
         warning = f"'{title}' matched '{matched_title}', which may be a different game"
-        warning += f" (also found: {', '.join(others)})." if others else "."
+        if others:
+            names = ", ".join(o.title for o in others[:3])
+            more = f" and {len(others) - 3} more" if len(others) > 3 else ""
+            warning += f". Also found: {names}{more}. Ask which one they mean."
+        else:
+            warning += "."
     return GamePrice(
         game_id=match["gameID"],
         title=matched_title,

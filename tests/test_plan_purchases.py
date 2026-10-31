@@ -35,8 +35,8 @@ async def test_tight_budget_keeps_the_biggest_saving(client):
 async def test_coordinates_the_other_two_tools(client, world):
     await plan(client, wishlist=["Celeste", "Hades"], budget=50)
     paths = [(r.url.path.rsplit("/", 1)[-1], dict(r.url.params)) for r in world.cheapshark_requests]
-    assert ("games", {"title": "Celeste", "limit": "10"}) in paths
-    assert ("games", {"title": "Hades", "limit": "10"}) in paths
+    assert ("games", {"title": "Celeste", "limit": "20"}) in paths
+    assert ("games", {"title": "Hades", "limit": "20"}) in paths
     assert len(world.ntfy_requests) == 1  # one notification for the whole plan
 
 
