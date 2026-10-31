@@ -1,0 +1,27 @@
+[project]
+name = "eece503p-c5-game-deals"
+version = "0.1.0"
+description = "FastMCP toolkit (game prices, phone alerts, budget purchase planner) driven by the OpenAI Agents SDK"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=4.1,<5",
+    "openai-agents>=0.24,<0.25",
+    "httpx>=0.28,<1",
+    "python-dotenv>=1.0,<2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["."]
