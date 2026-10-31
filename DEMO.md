@@ -64,9 +64,9 @@ Red error: no matching game. Clear message, no guess.
 ```
 you> Plan purchases for Celeste with a budget of 0 dollars.
 ```
-Red error: budget must be more than 0. Nothing sent. (The model sometimes refuses this itself
-without calling the tool. If so, say that the tool validates it anyway and show the matching test in
-`tests/test_plan_purchases.py`.)
+Red error: budget must be more than 0. Nothing sent. Point at the server's own
+`Error calling tool 'plan_purchases'` log line: the validation happens in the server, not the model
+(the agent is instructed to let the tools validate rather than pre-judge inputs itself).
 
 ```
 you> How much is Shadow Tactics?
