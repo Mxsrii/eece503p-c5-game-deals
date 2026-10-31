@@ -14,8 +14,11 @@ sends the shopping list to the user's phone.
 
 ### Data — `get_game_price(title)`
 Read-only. Looks the game up on CheapShark (price comparison across Steam, GOG, Humble, …).
-Returns `GamePrice`: matched title, whether it matched exactly, other close matches, cheapest
-store, current price, normal price, % and $ saved, all-time low (and its date), buy link. USD.
+Returns `GamePrice`: matched title, whether it matched exactly, cheapest store, current price,
+normal price, % and $ saved, all-time low (and its date), buy link. USD. Also every other search
+result with its current lowest price, labelled `edition` / `add-on` / `other` from its title
+(`toolkit/titles.py`); a `warning` when the match is inexact, and an `edition_note` when a fuller
+edition costs about the same. Exact titles win; otherwise the first non-add-on result is used.
 
 Errors: empty/too-long title; no matching game; CheapShark unreachable, rate-limiting or failing.
 
