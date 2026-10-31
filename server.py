@@ -93,9 +93,9 @@ async def get_game_price(title: str) -> GamePrice:
     also returns the lowest price the game has ever had, which tells you whether
     today's price is actually a good deal. Prices are in USD.
 
-    Searches are fuzzy: an exact title match is preferred, and exact_match is
-    false (with other_matches listed) when the closest title differs from the one
-    asked for, so check it before relying on the result.
+    Searches are fuzzy: an exact title match is preferred. When the closest title
+    differs from the one asked for, exact_match is false and `warning` explains it;
+    always pass that warning on to the user.
 
     Args:
         title: The game's name, e.g. "Hollow Knight" or "Celeste".
@@ -126,12 +126,19 @@ async def get_game_price(title: str) -> GamePrice:
     low_date = (
         datetime.fromtimestamp(low["date"], timezone.utc).date().isoformat() if low.get("date") else None
     )
+    matched_title = details.get("info", {}).get("title") or match["external"]
+    others = [r["external"] for r in results if r is not match][:3]
+    exact = _normalise(match["external"]) == wanted
+    warning = None
+    if not exact:
+        warning = f"'{title}' matched '{matched_title}', which may be a different game"
+        warning += f" (also found: {', '.join(others)})." if others else "."
     return GamePrice(
         game_id=match["gameID"],
-        title=details.get("info", {}).get("title") or match["external"],
+        title=matched_title,
         searched_for=title,
-        exact_match=_normalise(match["external"]) == wanted,
-        other_matches=[r["external"] for r in results if r is not match][:3],
+        exact_match=exact,
+        other_matches=others,
         store=stores.get(best["storeID"], f"store {best['storeID']}"),
         price=price,
         normal_price=normal,
@@ -140,6 +147,7 @@ async def get_game_price(title: str) -> GamePrice:
         all_time_low=float(low.get("price", price)),
         all_time_low_date=low_date,
         deal_url=f"https://www.cheapshark.com/redirect?dealID={best['dealID']}",
+        warning=warning,
     )
 
 
@@ -199,6 +207,7 @@ def _shopping_message(plan: PurchasePlan) -> str:
     ]
     lines += [f"Wait on {g.game.title}: ${g.game.price:.2f} now, {g.reason}" for g in plan.wait]
     lines += [f"Over budget: {g.game.title} (${g.game.price:.2f})" for g in plan.over_budget]
+    lines += [f"Check: {g.reason}" for g in plan.check]
     if plan.not_found:
         lines.append("Not found: " + ", ".join(plan.not_found))
     return "\n".join(lines)
@@ -208,16 +217,20 @@ def _shopping_message(plan: PurchasePlan) -> str:
 async def plan_purchases(
     wishlist: list[str],
     budget: float,
+    must_have: list[str] | None = None,
     send: bool = True,
 ) -> PurchasePlan:
     """Decide which wishlist games are worth buying now within a budget, and send the list to the phone.
 
     Use this when the user gives several games and/or a budget and asks what to buy.
     It coordinates the other two tools:
-      1. get_game_price for every title (titles it cannot find are skipped and reported),
-      2. judges each price: a good deal if within 25% of the game's all-time low or
-         at least 30% off; otherwise "wait for a sale",
-      3. picks the good deals that save the most money without going over budget,
+      1. get_game_price for every title. Titles it cannot find are skipped and
+         reported; inexact matches go to `check` and are never bought automatically.
+      2. Judges each price. A game must be discounted right now, and then counts as
+         a good deal if within 25% of its all-time low or at least 30% off.
+         Otherwise "wait" (full-price games, including new releases, always wait).
+      3. Picks what to buy within budget: must-haves first (even if the price is not
+         great), then the good deals that save the most money.
       4. send_to_phone with the shopping list (skipped when send=false or nothing is
          worth buying).
     Nothing is sent if any price lookup fails. Prices are in USD.
@@ -225,14 +238,17 @@ async def plan_purchases(
     Args:
         wishlist: 1 to 10 game titles, e.g. ["Celeste", "Hades", "Hollow Knight"].
         budget: Maximum total to spend in USD, more than 0 and up to 1000.
+        must_have: Titles the user really wants regardless of price, e.g. ["Hades"].
+            They are added to the wishlist if missing.
         send: True to send the shopping list now; false to preview the plan only.
     """
     seen: set[str] = set()
     titles = []
-    for t in (t.strip() for t in wishlist):
+    for t in (t.strip() for t in [*wishlist, *(must_have or [])]):
         if t and _normalise(t) not in seen:
             seen.add(_normalise(t))
             titles.append(t)
+    wanted = {_normalise(t) for t in (must_have or []) if t.strip()}
     if not 1 <= len(titles) <= MAX_WISHLIST:
         raise ToolError(f"wishlist must contain 1 to {MAX_WISHLIST} game titles (got {len(titles)}).")
     if not 0 < budget <= MAX_BUDGET:
@@ -251,12 +267,28 @@ async def plan_purchases(
     if not found:
         raise ToolError(f"None of the games were found: {', '.join(not_found)}. Nothing was sent.")
 
-    good, wait = [], []
+    candidates, wait, check = [], [], []
+    priority: set[str] = set()
     for game in found:
+        if not game.exact_match:
+            check.append(PlannedGame(game=game, reason=game.warning or "inexact match"))
+            continue
         is_good, reason = judge_deal(game.price, game.savings_percent, game.all_time_low)
-        (good if is_good else wait).append(PlannedGame(game=game, reason=reason))
+        if _normalise(game.searched_for) in wanted:
+            priority.add(game.game_id)
+            candidates.append(PlannedGame(game=game, reason=f"must-have; {reason}"))
+        elif is_good:
+            candidates.append(PlannedGame(game=game, reason=reason))
+        else:
+            wait.append(PlannedGame(game=game, reason=reason))
 
-    buy = best_purchase(good, budget, price=lambda p: p.game.price, saved=lambda p: p.game.savings_usd)
+    buy = best_purchase(
+        candidates,
+        budget,
+        price=lambda p: p.game.price,
+        saved=lambda p: p.game.savings_usd,
+        must_have=lambda p: p.game.game_id in priority,
+    )
     total_cost = round(sum(p.game.price for p in buy), 2)
     plan = PurchasePlan(
         budget=budget,
@@ -265,7 +297,8 @@ async def plan_purchases(
         total_saved=round(sum(p.game.savings_usd for p in buy), 2),
         budget_left=round(budget - total_cost, 2),
         wait=wait,
-        over_budget=[p for p in good if p not in buy],
+        over_budget=[p for p in candidates if p not in buy],
+        check=check,
         not_found=not_found,
         notification=None,
     )

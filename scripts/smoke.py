@@ -21,7 +21,8 @@ async def main() -> None:
     args = parser.parse_args()
 
     plan = await plan_purchases(args.titles, args.budget, send=False)
-    for label, items in (("BUY", plan.buy), ("WAIT", plan.wait), ("OVER BUDGET", plan.over_budget)):
+    groups = (("BUY", plan.buy), ("WAIT", plan.wait), ("OVER BUDGET", plan.over_budget), ("CHECK", plan.check))
+    for label, items in groups:
         for p in items:
             g = p.game
             match = "" if g.exact_match else f"  [inexact match for '{g.searched_for}']"

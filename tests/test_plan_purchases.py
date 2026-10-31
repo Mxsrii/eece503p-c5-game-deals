@@ -60,6 +60,41 @@ async def test_unknown_titles_are_skipped_and_reported(client):
     assert out["not_found"] == ["Zelda 99"]
 
 
+async def test_inexact_match_is_never_bought(client, world):
+    out = await plan(client, wishlist=["Celeste", "hollow"], budget=50)
+    assert names(out["buy"]) == ["Celeste"]
+    assert names(out["check"]) == ["Hollow Knight: Silksong"]
+    assert "may be a different game" in out["check"][0]["reason"]
+    assert "Check: 'hollow' matched 'Hollow Knight: Silksong'" in world.ntfy_bodies()[0]["message"]
+
+
+async def test_only_inexact_matches_sends_nothing(client, world):
+    out = await plan(client, wishlist=["hollow"], budget=50)
+    assert out["buy"] == [] and len(out["check"]) == 1
+    assert world.ntfy_requests == []
+
+
+async def test_full_price_game_with_no_history_waits(client):
+    # Stardew is "at its all-time low" only because it has never been on sale.
+    out = await plan(client, wishlist=["Stardew Valley"], budget=50, send=False)
+    assert out["buy"] == []
+    assert "never been discounted" in out["wait"][0]["reason"]
+
+
+async def test_must_have_is_bought_even_at_full_price(client):
+    out = await plan(client, wishlist=["Celeste"], must_have=["Hollow Knight"], budget=20, send=False)
+    assert names(out["buy"]) == ["Celeste", "Hollow Knight"]
+    hk = out["buy"][1]
+    assert hk["reason"].startswith("must-have; full price")
+
+
+async def test_must_have_takes_priority_over_bigger_savings(client):
+    # $15 can't fit both ($19.98). Celeste saves more, but the must-have wins.
+    out = await plan(client, wishlist=["Celeste"], must_have=["Hollow Knight"], budget=15, send=False)
+    assert names(out["buy"]) == ["Hollow Knight"]
+    assert names(out["over_budget"]) == ["Celeste"]
+
+
 async def test_duplicates_are_removed(client, world):
     out = await plan(client, wishlist=["Celeste", "celeste ", "CELESTE"], budget=50, send=False)
     assert names(out["buy"]) == ["Celeste"]

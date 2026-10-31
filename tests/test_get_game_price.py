@@ -27,15 +27,19 @@ async def test_cheapest_store_and_history(client):
 async def test_exact_title_beats_search_ranking(client):
     out = await price(client, "Hollow Knight")
     assert out["title"] == "Hollow Knight"  # not Silksong, which the search ranked first
-    assert out["exact_match"] is True
+    assert out["exact_match"] is True and out["warning"] is None
     assert out["other_matches"] == ["Hollow Knight: Silksong"]
 
 
-async def test_inexact_match_is_flagged(client):
+async def test_inexact_match_carries_a_warning(client):
     out = await price(client, "hollow")
     assert out["exact_match"] is False
     assert out["title"] == "Hollow Knight: Silksong"
     assert out["searched_for"] == "hollow"
+    assert out["warning"] == (
+        "'hollow' matched 'Hollow Knight: Silksong', which may be a different game "
+        "(also found: Hollow Knight)."
+    )
 
 
 async def test_requests_identify_the_app_and_are_cached(client, world):
@@ -94,6 +98,22 @@ async def test_throttle_spaces_out_requests():
     await cs.search_games("one")
     await cs.search_games("two")
     assert time.monotonic() - start >= 0.3
+
+
+async def test_cache_expires_so_prices_stay_fresh():
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json=[])
+
+    cs = CheapSharkClient(CHEAPSHARK, httpx.AsyncClient(transport=httpx.MockTransport(handler)), 0, cache_ttl_s=0.2)
+    await cs.search_games("x")
+    await cs.search_games("x")
+    assert len(calls) == 1  # served from cache
+    time.sleep(0.25)
+    await cs.search_games("x")
+    assert len(calls) == 2  # expired, fetched again
 
 
 async def test_unreadable_response():

@@ -17,6 +17,10 @@ class GamePrice(BaseModel):
     all_time_low: float = Field(description="Lowest price this game has ever had, USD")
     all_time_low_date: str | None = Field(description="When the all-time low happened (YYYY-MM-DD)")
     deal_url: str = Field(description="Link to buy at the lowest price")
+    warning: str | None = Field(
+        default=None,
+        description="Set when the match is not exact: tell the user it may be a different game",
+    )
 
 
 class SentNotification(BaseModel):
@@ -40,7 +44,12 @@ class PurchasePlan(BaseModel):
     total_saved: float = Field(description="Sum of normal price minus price over the buy list")
     budget_left: float
     wait: list[PlannedGame] = Field(description="Not a good deal right now")
-    over_budget: list[PlannedGame] = Field(description="Good deals that did not fit the budget")
+    over_budget: list[PlannedGame] = Field(
+        description="Good deals or must-haves that did not fit the budget"
+    )
+    check: list[PlannedGame] = Field(
+        description="Inexact title matches, never bought automatically: confirm the right game first"
+    )
     not_found: list[str] = Field(description="Wishlist titles with no matching game")
     notification: SentNotification | None = Field(
         description="What was sent; null in preview mode or when nothing is worth buying"

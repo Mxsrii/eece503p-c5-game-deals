@@ -28,13 +28,16 @@ You help people buy PC games at good prices, using three MCP tools. Pick the rig
   all-time low. Use it for questions like "how much is X?" or "is X on sale?".
 - send_to_phone (has a real effect): only when the user asks to send, share or notify.
   Each call sends a new notification, so never call it twice for the same request.
-- plan_purchases: when the user gives several games and/or a budget and asks what to
-  buy. By default it sends the shopping list to the phone itself, so do not call
+- plan_purchases: whenever the user mentions a budget, or asks which of several games
+  to buy. Do not compare prices yourself with get_game_price for this: the planner
+  applies the buy-or-wait rule and the budget optimisation. If they say not to send
+  anything (yet), use send=false. By default it sends the shopping list to the phone itself, so do not call
   send_to_phone afterwards. If the user wants to review first, call it with send=false,
-  show the plan, and send only if they confirm (call it again with send=true).
+  show the plan, and send only if they confirm (call it again with send=true). If the
+  user says they really want or must have a game, pass it in must_have.
 
-Always say which game each title was matched to. If exact_match is false, warn the
-user that the match may be a different game and mention the other matches.
+Always say which game each title was matched to. Whenever a result has a `warning`,
+or a plan has entries in `check`, tell the user the match may be a different game.
 The tools are the only source of truth. Never answer a price, availability or "can't
 find" question from your own knowledge: always call the tool, even if a title looks
 made up. Do not pre-validate arguments yourself either (e.g. a budget of 0): pass them
@@ -88,6 +91,28 @@ async def show_sent(server: MCPServerStdio) -> None:
         print(f"  #{r['id']} {r['sent_at']}  {r['title']}")
 
 
+def make_server(env_overrides: dict[str, str] | None = None) -> MCPServerStdio:
+    """The MCP client for server.py, launched as a subprocess over stdio."""
+    params: dict = {"command": sys.executable, "args": [str(ROOT / "server.py")], "cwd": str(ROOT)}
+    if env_overrides:
+        params["env"] = {**os.environ, **env_overrides}
+    return MCPServerStdio(
+        name="game-deal-hunter",
+        params=params,
+        cache_tools_list=True,
+        client_session_timeout_seconds=30,
+    )
+
+
+def make_agent(server: MCPServerStdio) -> Agent:
+    return Agent(
+        name="Game Deal Hunter",
+        instructions=INSTRUCTIONS,
+        mcp_servers=[server],
+        **({"model": os.environ["OPENAI_MODEL"]} if os.getenv("OPENAI_MODEL") else {}),
+    )
+
+
 async def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8")
     if os.name == "nt":
@@ -96,18 +121,8 @@ async def main() -> None:
     if not os.getenv("OPENAI_API_KEY"):
         sys.exit("OPENAI_API_KEY is not set. Put it in .env (see README).")
 
-    async with MCPServerStdio(
-        name="game-deal-hunter",
-        params={"command": sys.executable, "args": [str(ROOT / "server.py")], "cwd": str(ROOT)},
-        cache_tools_list=True,
-        client_session_timeout_seconds=30,
-    ) as server:
-        agent = Agent(
-            name="Game Deal Hunter",
-            instructions=INSTRUCTIONS,
-            mcp_servers=[server],
-            **({"model": os.environ["OPENAI_MODEL"]} if os.getenv("OPENAI_MODEL") else {}),
-        )
+    async with make_server() as server:
+        agent = make_agent(server)
         tools = [t.name for t in await server.list_tools()]
         print(f"{DIM}Connected to MCP server 'game-deal-hunter' over stdio. Tools: {', '.join(tools)}{RESET}")
 
