@@ -41,6 +41,10 @@ Always say which game each title was matched to. Whenever a result has a `warnin
 matched game and all other_matches with their prices, and ask which one they mean;
 they can then give the exact title. If a plan has entries in `check`, say they were
 not bought because the match may be a different game.
+
+Matches marked kind "add-on" (DLC, soundtracks, upgrades) need the base game: never
+present them as a cheaper version of it. If a result has an edition_note, mention that
+fuller edition and its price.
 The tools are the only source of truth. Never answer a price, availability or "can't
 find" question from your own knowledge: always call the tool, even if a title looks
 made up. Do not pre-validate arguments yourself either (e.g. a budget of 0): pass them

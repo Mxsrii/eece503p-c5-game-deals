@@ -99,6 +99,11 @@ Example requests:
 - **Uncertainty is handled in code, not left to the prompt.** CheapShark's search is fuzzy
   ("Shadow Tactics" returns an expansion). Exact title matches win; otherwise the price comes with a
   `warning`, and the planner puts the game in a `check` list instead of buying it.
+- **Editions and add-ons are told apart.** Every other match is labelled *edition* (Deluxe,
+  Ultimate… of the same game), *add-on* (DLC, soundtrack, "upgrade": needs the game) or *other*, from
+  its title (`toolkit/titles.py`). A vague search never picks an add-on, and `edition_note` flags a
+  fuller edition that costs about the same ("Ultimate Edition is only $4.50 more"). The rule is
+  strict on purpose: "ELDEN RING NIGHTREIGN Deluxe Edition" is a different game, not an edition.
 - **Agent behaviour is measured, not assumed.** Prompt instructions can't be enforced in code, so
   `scripts/eval_routing.py` runs 9 requests through the real agent (with sending disabled) and checks
   which tool it chose. Current result: 18/18 over two runs. It caught the agent comparing prices
@@ -127,9 +132,10 @@ toolkit/
   deals.py            buy-or-wait rule and budget optimiser (pure functions)
   notify.py           ntfy publisher
   store.py            SQLite notification log
+  titles.py           edition / add-on labels from title words
   models.py           typed tool outputs (Pydantic)
   config.py           settings from .env
-tests/                67 tests; HTTP faked with httpx.MockTransport
+tests/                90 tests; HTTP faked with httpx.MockTransport
 scripts/smoke.py      real-API check in preview mode
 scripts/eval_routing.py  real-agent check that requests reach the right tool
 ```
@@ -141,6 +147,10 @@ scripts/eval_routing.py  real-agent check that requests reach the right tool
   exact matches, so no warning is raised and the tool picks the first.
 - "All-time low" is CheapShark's record across the stores it tracks, not every store in the world,
   and prices can differ by region.
+- "Cheapest" means cheapest at any tracked store, whatever its launcher: the cheapest copy may be on
+  Epic while you play on Steam.
+- Edition and add-on labels come from title words, since CheapShark has no such field. They can miss
+  editions with unusual names (e.g. "Shadow of the Erdtree Edition" is labelled *other*).
 - The agent's routing is measured (18/18) but can't be guaranteed: it is a language model following
   instructions. An ambiguous "remind me next week" request sometimes made it hesitate, because
   `send_to_phone` sends immediately and can't schedule.

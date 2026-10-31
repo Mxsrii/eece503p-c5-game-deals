@@ -1,5 +1,7 @@
 """Typed tool outputs. Field descriptions end up in the MCP output schemas."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -7,6 +9,11 @@ class GameMatch(BaseModel):
     game_id: str = Field(description="CheapShark game id")
     title: str
     cheapest_price: float = Field(description="Lowest current price in USD across stores")
+    kind: Literal["edition", "add-on", "other"] = Field(
+        description="'edition': another edition of the matched game (e.g. Deluxe); 'add-on': "
+        "DLC, soundtrack, upgrade etc. that needs the game, never a cheaper copy of it; "
+        "'other': a different game, bundle or expansion. Judged from the title."
+    )
 
 
 class GamePrice(BaseModel):
@@ -29,6 +36,10 @@ class GamePrice(BaseModel):
     warning: str | None = Field(
         default=None,
         description="Set when the match is not exact: tell the user it may be a different game",
+    )
+    edition_note: str | None = Field(
+        default=None,
+        description="Set when a fuller edition (Deluxe, Ultimate...) costs about the same: mention it",
     )
 
 

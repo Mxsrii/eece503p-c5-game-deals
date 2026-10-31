@@ -23,6 +23,7 @@ from toolkit.deals import best_purchase, judge_deal
 from toolkit.models import GameMatch, GamePrice, PlannedGame, PurchasePlan, SentNotification
 from toolkit.notify import NotifyError, NtfyClient
 from toolkit.store import NotificationLog
+from toolkit.titles import classify, edition_note, is_addon
 
 mcp = FastMCP(
     name="game-deal-hunter",
@@ -98,6 +99,11 @@ async def get_game_price(title: str) -> GamePrice:
     exact_match is false, `warning` explains it, and other_matches lists every other
     game found with its current lowest price: show them and ask which one is meant.
 
+    Each of other_matches has a kind: "edition" (Deluxe, Ultimate... of the same game),
+    "add-on" (DLC, soundtrack, upgrade: needs the game, never a cheaper copy of it) or
+    "other". The price is for the exact edition matched; edition_note points out a
+    fuller edition that costs about the same.
+
     Args:
         title: The game's name, e.g. "Hollow Knight" or "Celeste".
     """
@@ -113,7 +119,12 @@ async def get_game_price(title: str) -> GamePrice:
         if not results:
             raise GameNotFound(f"No game matching '{title}' was found. Check the spelling.")
         wanted = _normalise(title)
-        match = next((r for r in results if _normalise(r["external"]) == wanted), results[0])
+        # Exact title first; otherwise the first result that isn't an add-on (a $2 costume
+        # pack is never the game someone asked about).
+        match = next(
+            (r for r in results if _normalise(r["external"]) == wanted),
+            next((r for r in results if not is_addon(r["external"])), results[0]),
+        )
         details = await services.cheapshark.game_details(match["gameID"])
         if not details or not details.get("deals"):
             raise GameNotFound(f"'{match['external']}' has no current offers in any store.")
@@ -131,7 +142,12 @@ async def get_game_price(title: str) -> GamePrice:
     # The search results already carry each game's cheapest price, so listing every
     # alternative costs no extra requests.
     others = [
-        GameMatch(game_id=r["gameID"], title=r["external"], cheapest_price=float(r.get("cheapest") or 0))
+        GameMatch(
+            game_id=r["gameID"],
+            title=r["external"],
+            cheapest_price=float(r.get("cheapest") or 0),
+            kind=classify(match["external"], r["external"]),
+        )
         for r in results
         if r is not match
     ]
@@ -139,9 +155,10 @@ async def get_game_price(title: str) -> GamePrice:
     warning = None
     if not exact:
         warning = f"'{title}' matched '{matched_title}', which may be a different game"
-        if others:
-            names = ", ".join(o.title for o in others[:3])
-            more = f" and {len(others) - 3} more" if len(others) > 3 else ""
+        candidates = [o for o in others if o.kind != "add-on"]
+        if candidates:
+            names = ", ".join(o.title for o in candidates[:3])
+            more = f" and {len(candidates) - 3} more" if len(candidates) > 3 else ""
             warning += f". Also found: {names}{more}. Ask which one they mean."
         else:
             warning += "."
@@ -160,6 +177,9 @@ async def get_game_price(title: str) -> GamePrice:
         all_time_low_date=low_date,
         deal_url=f"https://www.cheapshark.com/redirect?dealID={best['dealID']}",
         warning=warning,
+        edition_note=edition_note(
+            price, [(o.title, o.cheapest_price) for o in others if o.kind == "edition"]
+        ),
     )
 
 
