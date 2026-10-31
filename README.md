@@ -19,7 +19,7 @@ that saves the most money within your budget, and sends the shopping list to you
 
 Write-ups: [Part 1 summary](SUMMARY.md) · [Reflection](REFLECTION.md) · [Design spec](SPEC.md)
 
-Demo video: _add link here_
+Demo video: [Webex recording](https://aub.webex.com/aub/ldr.php?RCID=ad9b36a3c0a53494d234c4d9faddb3ea) · password `aF3my2Z@` (also in [demo-video.txt](demo-video.txt))
 
 ## How it fits together
 

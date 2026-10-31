@@ -1,0 +1,8 @@
+EECE 503P/798S - C5 Agent Tools
+Mohammad Jawad Al Masri
+Game Deal Hunter: MCP toolkit demo (screencast)
+
+Recording link: https://aub.webex.com/aub/ldr.php?RCID=ad9b36a3c0a53494d234c4d9faddb3ea
+Password: aF3my2Z@
+
+Code repository: https://github.com/Mxsrii/eece503p-c5-game-deals
