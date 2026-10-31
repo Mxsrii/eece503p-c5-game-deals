@@ -276,6 +276,8 @@ async def plan_purchases(
         is_good, reason = judge_deal(game.price, game.savings_percent, game.all_time_low)
         if _normalise(game.searched_for) in wanted:
             priority.add(game.game_id)
+            if not is_good:
+                reason = f"not a deal right now (has been as low as ${game.all_time_low:.2f})"
             candidates.append(PlannedGame(game=game, reason=f"must-have; {reason}"))
         elif is_good:
             candidates.append(PlannedGame(game=game, reason=reason))

@@ -85,7 +85,7 @@ async def test_must_have_is_bought_even_at_full_price(client):
     out = await plan(client, wishlist=["Celeste"], must_have=["Hollow Knight"], budget=20, send=False)
     assert names(out["buy"]) == ["Celeste", "Hollow Knight"]
     hk = out["buy"][1]
-    assert hk["reason"].startswith("must-have; full price")
+    assert hk["reason"] == "must-have; not a deal right now (has been as low as $2.99)"
 
 
 async def test_must_have_takes_priority_over_bigger_savings(client):
